@@ -31,6 +31,7 @@ model_state = ModelState()
 UPLOAD_DIR = Path("./uploaded_pdfs")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+
 app = FastAPI()
 FastAPIInstrumentor.instrument_app(app)
 
@@ -94,6 +95,8 @@ async def upload_pdf(user_id: str, file: UploadFile = File(...)):
             with tracer.start_as_current_span(
                 "setup_pipeline", links=[trace.Link(upload_pdf.get_span_context())]
             ):
+            
+            # Call to function setup_pipeline of data_pipeline.py
                 model_state.qa_pipelines[user_id] = setup_pipeline(local_dir=get_model_dir(), file_path=str(file_path), model=model_state.model)
             logger.info("Retriever updated!")
             return {"message": "PDF processed and stored successfully", "file_path": file_path}

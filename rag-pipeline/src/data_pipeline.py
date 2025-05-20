@@ -28,6 +28,7 @@ def setup_pipeline(local_dir: str, file_path: str = None, model: PreTrainedModel
                 local_dir=get_model_dir()
             )
         
+        # Call to function prepare_retriever of data_preparation.py
         with tracer.start_as_current_span("prepare_retriever", links=[trace.Link(setup_pipeline.get_span_context())]):
             retriever = prepare_retriever(file_path=file_path)
         
