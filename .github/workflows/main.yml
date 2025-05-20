@@ -1,4 +1,4 @@
-name: Build and Update Values
+name: Build and Push Images
 
 on:
   push:
@@ -10,8 +10,7 @@ env:
   RAG_IMAGE_NAME: 'rag-pipeline'
   STREAMLIT_IMAGE_NAME: 'streamlit-app'
   NGINX_IMAGE_NAME: 'nginx'
-  DOCKER_REGISTRY: 'anhtran2611/llm-repo-dockerhub' # Thay thế bằng registry 
-  HELM_VALUES_REPO: 'your-org/helm-values' # Thay thế bằng repo chứa values
+  DOCKER_REGISTRY: 'anhtran2611/llm-repo-dockerhub'
 
 jobs:
   test:
@@ -20,23 +19,23 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-      - name: Start Docker containers
-        run: docker-compose -f docker-compose.yml up -d
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r rag-pipeline/requirements.txt
 
       - name: Run tests
         run: |
-          docker exec -e PYTHON_PATH="/rag-pipeline/src" python bash -c "\
-          cd rag-pipeline && \
-          pip install --no-cache-dir -r requirements.txt && \
-          export PYTHONPATH=/rag-pipeline/src OTEL_SDK_DISABLED=true && \
-          pytest --cov=src \
-                 --cov-report=xml:coverage.xml \
-                 --junitxml=test-reports/results.xml \
-                 tests/
-                 "
+          export PYTHONPATH=rag-pipeline/src
+          pytest --cov=rag-pipeline/src \
+                 --cov-report=xml:rag-pipeline/coverage.xml \
+                 --junitxml=rag-pipeline/test-reports/results.xml \
+                 rag-pipeline/tests/
 
       - name: Check coverage
         run: |
@@ -55,7 +54,7 @@ jobs:
           file: ./rag-pipeline/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  build-and-update:
+  build-and-push:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -78,20 +77,20 @@ jobs:
         with:
           context: ./rag-pipeline
           push: true
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.RAG_IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ env.DOCKER_REGISTRY }}:rag-pipeline-${{ github.sha }}
 
       - name: Build and push Streamlit image
         uses: docker/build-push-action@v4
         with:
           context: ./streamlit
           push: true
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.STREAMLIT_IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ env.DOCKER_REGISTRY }}:streamlit-app-${{ github.sha }}
 
       - name: Build and push Nginx image
         uses: docker/build-push-action@v4
         with:
           context: ./nginx
           push: true
-          tags: ${{ env.DOCKER_REGISTRY }}/${{ env.NGINX_IMAGE_NAME }}:${{ github.sha }}
+          tags: ${{ env.DOCKER_REGISTRY }}:nginx-${{ github.sha }}
 
 
